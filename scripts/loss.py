@@ -702,7 +702,7 @@ def losses_weights(model_name, reg_lambda, training_losses, training_losses2 = v
 
 
 
-def get_training_losses(device_number):
+def get_losses(device_number):
     fuse_or_avg = 'avg'
     #layer_select = [0,4]#[0,1,2,3,4]#[0,1,4]#[0,1,2,3,4]
     #layer_weights = [3/4,1,1,1,1/4]

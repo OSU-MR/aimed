@@ -11,4 +11,4 @@ import torch
 num_cuda_devices = torch.cuda.device_count()
 device = [torch.device(f"cuda:{i}" if torch.cuda.is_available() else "cpu") for i in range(num_cuda_devices)]
 
-loss_name_list = ['loss_l1','loss_l2','loss_ssim', 'loss_ncc', 'loss_wl', 'loss_LDC', 'loss_NCCFED', 'loss_NCCLDC', 'loss_canny']  #NCCFED == NCC+finite difference edge detector
+loss_name_list = ['loss_L1','loss_L2','loss_SSIM', 'loss_NCC', 'loss_WL', 'loss_LDC', 'loss_NCCFED', 'loss_NCCLDC', 'loss_CANNY']  #NCCFED == NCC+finite difference edge detector

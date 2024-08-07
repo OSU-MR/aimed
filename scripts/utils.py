@@ -15,15 +15,15 @@ def SNR2standard_deviation(SNR, img):
     return sd
 
 
-def add_noise_of_certain_SNR(x_train_twochannels, x_test_twochannels, SNR = None , mimic_sd = None, is_phase_ref = 0, to_print = True):
+def add_noise_of_certain_SNR(data_train, data_val, SNR = None , mimic_sd = None, is_phase_ref = 0, to_print = True):
     if mimic_sd is not None:
         SNR = [1000, 19, 14, 11][[0, 0.033, 0.0565, 0.08].index(mimic_sd)]
     try:
-        dataset     = np.vstack((x_train_twochannels['LAX'],x_train_twochannels['SAX'],x_train_twochannels['2CH']))
-        dataset_val = np.vstack((x_test_twochannels['LAX'],x_test_twochannels['SAX'],x_test_twochannels['2CH']))
+        dataset     = np.vstack((data_train['LAX'],data_train['SAX'],data_train['2CH']))
+        dataset_val = np.vstack((data_val['LAX'],data_val['SAX'],data_val['2CH']))
     except:
-        dataset     = x_train_twochannels['SAX']
-        dataset_val = x_test_twochannels['SAX']
+        dataset     = data_train['SAX']
+        dataset_val = data_val['SAX']
 
 
     if SNR > 999:
@@ -218,3 +218,250 @@ def calculate_record_losses_hist(model, generator_val, losses2record, loss_type 
                 losses2record['_'.join([loss_name2record,loss_type])].append(current_losses[i])
 
     return current_losses, ['snr','ssim','lpips','dists','LDC']
+
+
+def save2csv(save_cvs_result_name, result2cvs):
+    # Split the path and the filename
+    filename = None
+    try:
+        if save_cvs_result_name is not None:
+            directory, filename = os.path.split(save_cvs_result_name)
+
+            # If a directory is specified and does not exist, create it
+            if directory and not os.path.exists(directory):
+                os.makedirs(directory)
+
+        # If a filename is provided, append .csv to it and open the file
+        if filename is not None:
+            with open(save_cvs_result_name+'.csv', 'a') as f:
+                write = csv.writer(f)
+                write.writerows(result2cvs)
+                print("csv saved")
+    except Exception as e:
+        print(e)
+
+def get_current_score_val(model, inputs, y_true, lpips , D, LDC_loss_val,vol_shape =[192,192],device_number = None, idx_recorder = None, title = None, img_idx = None):
+    assert device_number is not None
+
+    inputs = [torch.from_numpy(d).to(device[device_number]).float() for d in inputs]
+    y_true = [torch.from_numpy(d).to(device[device_number]).float() for d in y_true]
+
+
+    y_pred = model(*inputs)
+            
+    target_hats_avg  = two2one(np.mean((y_pred[0].detach().cpu().numpy()),0))  #for single vxm:y_pred[0].shape:[14,H,W]  for weight tied vxm: target_hats_avg.shape (192, 192)
+    target_true      = two2one(y_true[0][0,...].detach().cpu().numpy())
+    source_images    = two2one2(inputs[0][:,...].detach().cpu().numpy())
+    source_images_avg = np.mean(source_images,axis = 0)
+
+    # only for calculating score for noisy refernce
+    target_hats_avg = source_images_avg
+
+    #print(y_pred[0][0,...])
+    #target_hats_avg = target_hats_avg*2 ###!!!!
+    
+    target_hats_avg_without_masked = target_hats_avg
+    target_true_without_masked = target_true
+    source_images_avg_without_masked = source_images_avg
+
+
+    ########### LDC edge loss
+    target_hats_avg_LDC = torch.unsqueeze(torch.from_numpy(one2two(target_hats_avg)),0).to(device[device_number])
+    target_true_LDC = torch.unsqueeze(torch.from_numpy(one2two(target_true)),0).to(device[device_number])
+    current_LDC_loss = LDC_loss_val(target_hats_avg_LDC,target_true_LDC).item()
+
+
+    ###########TV loss
+
+    img_tv = target_hats_avg-target_true#target_hats_avg
+
+    dx = img_tv[1:,1:] - img_tv[:-1,1:]
+    dy = img_tv[1:,1:] - img_tv[1:,:-1]
+
+    tv = (dx**2+dy**2)**0.5
+
+    current_tv_loss = np.abs(np.mean(tv))
+
+
+    ###########SNR
+    current_snr_loss = SNR(target_true,target_hats_avg)
+            
+    ############SSIM
+    try:
+        reference_e = one2two(target_true)
+        target_hats = one2two(target_hats_avg)
+                
+        reference_t   = torch.FloatTensor(reference_e[np.newaxis,...]).to(device[device_number])
+        target_hats_t = torch.FloatTensor(target_hats[np.newaxis,...]).to(device[device_number])                                            
+                
+        current_ssim_loss = 1- torch_ssim_loss(reference_t, target_hats_t ,reduction = 'mean',window_size=11 , 
+                                    max_val = torch.max(torch.max(reference_t),torch.max(target_hats_t))   ).cpu().numpy()
+    except:
+        current_ssim_loss = 999
+
+    #############LPIPS
+    try:    
+        placeholder = torch.zeros([1,1]+vol_shape).to(device[device_number])
+
+        reference_t_3ch = torch.column_stack((reference_t,placeholder))
+        target_hats_t_3ch = torch.column_stack((target_hats_t,placeholder))
+
+        reference_t_3ch = reference_t_3ch/torch.max(   torch.abs(torch.min(reference_t_3ch))   ,   torch.abs(torch.max(reference_t_3ch))   )
+        target_hats_t_3ch = target_hats_t_3ch/torch.max(   torch.abs(torch.min(target_hats_t_3ch))   ,   torch.abs(torch.max(target_hats_t_3ch))   )
+
+        current_lpips_loss = lpips(reference_t_3ch,target_hats_t_3ch).item()
+    except:
+        current_lpips_loss = 999
+
+    #############DISTS
+    try:
+        reference_t_3ch_normalized = (reference_t_3ch-torch.min(reference_t_3ch))/(torch.max(reference_t_3ch)-torch.min(reference_t_3ch))
+        target_hats_t_3ch_normalized = (target_hats_t_3ch-torch.min(target_hats_t_3ch))/(torch.max(target_hats_t_3ch)-torch.min(target_hats_t_3ch))
+
+        current_dists_loss = D(reference_t_3ch_normalized, target_hats_t_3ch_normalized).item()
+    except:
+        current_dists_loss = 999
+
+
+    return current_snr_loss, current_ssim_loss , current_lpips_loss, current_dists_loss ,current_LDC_loss, current_tv_loss , -1  , target_hats_avg_without_masked , target_true_without_masked , source_images_avg_without_masked 
+
+
+import matplotlib.pyplot as plt
+
+def display_result_imgs(target_hats_avg, target_true, source_avg, idx_recorder, list2display, vmax = 1, 
+                        current_results = None, para2train = None,id_ind= None,img_ind = None, save_result_name = None,
+                        interpolation4display='bilinear',title_fontsize = 12):
+
+    # target_hats_avg = target_hats_avg[18:113,37:133]
+    # target_true = target_true[18:113,37:133]
+    # source_avg = source_avg[18:113,37:133]
+
+    # target_hats_avg = pad_or_crop_array_to_target(target_hats_avg, target_height=224, target_width=126)
+    # target_true = pad_or_crop_array_to_target(target_true, target_height=224, target_width=126)
+    # source_avg = pad_or_crop_array_to_target(source_avg, target_height=224, target_width=126)
+
+    # target_hats_avg = np.fft.fftshift(np.fft.fft2(target_hats_avg,axes=(0,1)))
+    # target_true = np.fft.fftshift(np.fft.fft2(target_true,axes=(0,1)))
+    # source_avg = np.fft.fftshift(np.fft.fft2(source_avg,axes=(0,1)))
+
+    # target_hats_avg = pad_or_crop_array_to_target(target_hats_avg, target_height=224, target_width=168)
+    # target_true = pad_or_crop_array_to_target(target_true, target_height=224, target_width=168)
+    # source_avg = pad_or_crop_array_to_target(source_avg, target_height=224, target_width=168)    
+
+    # target_hats_avg = np.fft.ifft2(np.fft.ifftshift(target_hats_avg,axes=(0,1)),axes=(0,1))
+    # target_true = np.fft.ifft2(np.fft.ifftshift(target_true,axes=(0,1)),axes=(0,1))
+    # source_avg = np.fft.ifft2(np.fft.ifftshift(source_avg,axes=(0,1)),axes=(0,1))
+
+    # target_hats_avg = pad_or_crop_array_to_target(target_hats_avg, target_height=192, target_width=192)
+    # target_true = pad_or_crop_array_to_target(target_true, target_height=192, target_width=192)
+    # source_avg = pad_or_crop_array_to_target(source_avg, target_height=192, target_width=192)  
+
+
+    para2train = str(para2train) + '\n' if para2train is not None else ''
+    try:
+        #list2display.index(idx_recorder)
+        #list2display.index(idx_recorder%8)#%8#%10
+        #list2display.index(idx_recorder%1)
+        #fig, axes = plt.subplots(2,2,figsize=(10*2+6,10*2))
+        #fig, axes = plt.subplots(2,2,figsize=(10*2,10*2))
+        #fig, axes = plt.subplots(2,2,figsize=(5,5))
+        #im = axes[0,0].imshow(np.abs(target_hats_avg),cmap= 'gray',vmax=vmax,interpolation=interpolation4display)
+        #print(target_hats_avg)
+        ########################################
+        if current_results is None:
+            axes[0,0].set_title('the average of the target hats',fontsize=title_fontsize)
+        else:
+            current_snr_loss, current_ssim_loss , current_lpips_loss, current_dists_loss,current_LDC_loss ,current_tv_loss , current_wavelet_loss_mean = current_results
+            results2save = para2train+'the average of the target hats' + '\nrSNR:\n' + str(round(current_snr_loss,2)) + '\nSSIM:\n' + str(round(current_ssim_loss,5)) + '\nLPIPS:\n' + str(round(current_lpips_loss,5)) + '\nDISTS:\n' + str(round(current_dists_loss,5))+ '\nLDC:\n' + str(round(current_LDC_loss,5))+ '\nTV:\n' +str(round(current_tv_loss,5))
+
+
+        if id_ind is not None and img_ind is not None:
+            path2slice = './result_images_'+save_result_name+'/'+str(id_ind)+'/'+str(img_ind)+'/'
+            os.mkdir(path2slice, exist_ok=True)
+            
+        with open(path2slice+"results.txt", 'w') as file:
+            file.write(results2save)
+
+        plt.subplots(figsize=(1,1))
+        plt.imshow(np.abs(target_hats_avg),cmap= 'gray',vmin=0,vmax=vmax,interpolation=interpolation4display)
+        plt.axis('off')
+        plt.savefig(path2slice+'target_hats_avg'+'.png', bbox_inches = 'tight',pad_inches = 0 , dpi=503)
+
+        # plt.subplots(figsize=(1,1))
+        # plt.imshow(np.abs(target_true),cmap= 'gray',vmin=0,vmax=vmax,interpolation=interpolation4display)
+        # plt.axis('off')
+        # plt.savefig(path2slice+'reference'+'.png', bbox_inches = 'tight',pad_inches = 0 , dpi=503)
+
+        error_times = 2
+        # plt.subplots(figsize=(1,1))
+        # plt.imshow(np.abs(target_hats_avg - target_true)*error_times,cmap= 'gray',vmin=0,vmax=vmax,interpolation=interpolation4display)
+        # plt.axis('off')
+        # cbar = plt.colorbar(shrink=0.75)
+        # # Adjusting the font size of the colorbar's tick labels
+        # cbar.set_ticks([1,0.8,0.6,0.4,0.2,0])
+        # cbar.ax.tick_params(labelsize=5)
+        
+        # plt.savefig(path2slice+'error_map_(x'+str(error_times)+')_colorbar'+'.png', bbox_inches = 'tight',pad_inches = 0 , dpi=503)
+
+
+        plt.subplots(figsize=(1,1))
+        plt.imshow(np.abs(target_hats_avg - target_true)*error_times,cmap= 'jet',vmin=0,vmax=vmax,interpolation=interpolation4display)
+        #plt.imshow(np.abs(np.abs(target_hats_avg) - np.abs(target_true))*error_times,cmap= 'jet',vmin=0,vmax=vmax,interpolation=interpolation4display)
+        plt.axis('off')
+        plt.savefig(path2slice+'error_map_(x'+str(error_times)+')'+'.png', bbox_inches = 'tight',pad_inches = 0 , dpi=503)
+
+
+        plt.subplots(figsize=(1,1))
+        plt.imshow(np.abs(source_avg),cmap= 'gray',vmin=0,vmax=vmax,interpolation=interpolation4display)
+        plt.axis('off')
+        plt.savefig(path2slice+'avg_source_noisy_target_images'+'.png', bbox_inches = 'tight',pad_inches = 0 , dpi=503)
+        ########################################
+        # if id_ind == 0:
+        #     if id_ind is not None and img_ind is not None:
+        #         #path2slice = './result_images_'+save_result_name+'/'+str(id_ind)+'/'+str(img_ind)+'/'
+        #         path2slice = './result_images_'+save_result_name+'/'+'ref'+'/'+str(img_ind)+'/'
+        #         maybe_mkdir_p( path2slice )
+
+        #     if current_results is None:
+        #         axes[0,0].set_title('noisy target',fontsize=title_fontsize)
+        #     else:
+        #         current_snr_loss, current_ssim_loss , current_lpips_loss, current_dists_loss,current_LDC_loss ,current_tv_loss , current_wavelet_loss_mean = current_results
+        #         results2save = para2train+'noisy target' + '\nrSNR:\n' + str(round(current_snr_loss,2)) + '\nSSIM:\n' + str(round(current_ssim_loss,5)) + '\nLPIPS:\n' + str(round(current_lpips_loss,5)) + '\nDISTS:\n' + str(round(current_dists_loss,5))+ '\nLDC:\n' + str(round(current_LDC_loss,5))+ '\nTV:\n' +str(round(current_tv_loss,5))
+
+        #     with open(path2slice+"results.txt", 'w') as file:
+        #         file.write(results2save)
+
+
+        #     plt.subplots(figsize=(1,1))
+        #     plt.imshow(np.abs(target_true),cmap= 'gray',vmin=0,vmax=vmax,interpolation=interpolation4display)
+        #     plt.axis('off')
+        #     plt.savefig(path2slice+'reference'+'.png', bbox_inches = 'tight',pad_inches = 0 , dpi=503)
+
+        #     plt.subplots(figsize=(1,1))
+        #     #plt.imshow(np.abs(target_true-source_avg)*2,cmap= 'jet',vmax=vmax,interpolation=interpolation4display)
+        #     plt.imshow(np.abs(target_true-source_avg)*1,cmap= 'jet',vmin=0,vmax=vmax,interpolation=interpolation4display)
+        #     #plt.imshow((np.abs(target_true)-np.abs(source_avg))*2,cmap= 'jet',vmin=-1,vmax=vmax,interpolation=interpolation4display)
+        #     plt.axis('off')
+        #     plt.savefig(path2slice+'noise_map'+'.png', bbox_inches = 'tight',pad_inches = 0 , dpi=503)
+
+        #     # plt.subplots(figsize=(1,1))
+        #     # plt.imshow(np.abs(target_true-source_avg)*5,cmap= 'gray',vmin=0,vmax=vmax,interpolation=interpolation4display)
+        #     # plt.axis('off')
+        #     # plt.savefig(path2slice+'noise_map(x5)'+'.png', bbox_inches = 'tight',pad_inches = 0 , dpi=503)
+
+
+        #     plt.subplots(figsize=(1,1))
+        #     plt.imshow(np.abs(source_avg),cmap= 'gray',vmin=0,vmax=vmax,interpolation=interpolation4display)
+        #     plt.axis('off')
+        #     plt.savefig(path2slice+'noisy_target_images'+'.png', bbox_inches = 'tight',pad_inches = 0 , dpi=503)
+
+#########################
+        if id_ind is not None and img_ind is not None:
+            ...
+        else:
+            ...
+            #plt.show()
+
+    except Exception as e:
+        print(e)
+        ...

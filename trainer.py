@@ -71,15 +71,17 @@ def training(data_train, data_val,data_test,
         p_notes = params.get('notes', '')
 
         print(params)
-        training_losses, field_regularization , D, lpips , LDC_loss_val= get_training_losses(device_number)
+        training_losses, field_regularization , D, lpips , LDC_loss_val= get_losses(device_number)
 
-        #adding noise for digital patients (ncc only)
-        # _, _, dataset, dataset_val, _, _ = add_noise_of_certain_SNR(x_train_twochannels, x_test_twochannels, SNR = 50)
-        # _, _, dataset_with_noise, dataset_with_noise_val, _,_ = add_noise_of_certain_SNR(x_train_twochannels, x_test_twochannels, mimic_sd = p_standard_deviation)
-
-        #for other patients
-        dataset, dataset_val, dataset_with_noise, dataset_with_noise_val = add_noise_of_certain_SNR(data_train, data_val,mimic_sd = p_standard_deviation)
         
+        if 'ncc' in p_loss or 'NCC' in p_loss:
+            #adding noise for digital patients (ncc only, since ncc loss doesn work well with data without testures)
+            _, _, dataset, dataset_val, _, _ = add_noise_of_certain_SNR(data_train, data_val, SNR = 50)
+            _, _, dataset_with_noise, dataset_with_noise_val, _,_ = add_noise_of_certain_SNR(data_train, data_val, mimic_sd = p_standard_deviation)
+        else:
+            #for other patients
+            dataset, dataset_val, dataset_with_noise, dataset_with_noise_val = add_noise_of_certain_SNR(data_train, data_val,mimic_sd = p_standard_deviation)
+            
         #verifiying on 6 dB
         _, _, dataset_with_noise_xdB, dataset_with_noise_val_xdB = add_noise_of_certain_SNR(data_train, data_val, SNR = 6)
         #testing on 6 dB
@@ -157,8 +159,10 @@ def training(data_train, data_val,data_test,
 
 
 model_lists = [
-    {'standard_deviation': 0.08, 'lambda_value': 0.05, 'model': 'simple_avg_model', 'loss': 'loss_LDC', 'mode': 'bicubic', 'batch_size': 5, 'learning_rate': 3, 'epochs': 25,  
-     'SGDmomentum': 0.9, 'notes': ''},
+    {'standard_deviation': 0.08, 'lambda_value': 0.05, 
+     'model': 'simple_avg_model', 'loss': 'loss_LDC', 'mode': 'bicubic', 
+     'batch_size': 5, 'learning_rate': 3, 'epochs': 25,  'SGDmomentum': 0.9, 
+     'notes': ''},
 ]
 
 

@@ -477,3 +477,17 @@ def create_generators(model_name,
 
         return generator, generator_val, generator_training, generator_test
 
+
+def create_generators_val(model_name, 
+                          dataset_test, dataset_with_noise_test, 
+                          selected_target = 14, 
+                          prefix_val = None,
+                          brightness_augmentation = False, 
+                          data_shift = False, 
+                          change_noise = False):
+    if model_name == "vxm_model":
+        generator_val         = vxm_data_generator_parallel(dataset_with_noise_test,clear_data=dataset_test, val=selected_target, batch_size = 14, brightness_augmentation=brightness_augmentation, data_shift=data_shift, change_noise=change_noise, prefix_val=prefix_val)#'_'+str(SNR)+'dB_'+'digital'+'_')
+        return generator_val
+    else:
+        generator_val = simple_avg_data_generator_parallel(dataset_with_noise_test,clear_data=dataset_test, val=selected_target, batch_size = 1, brightness_augmentation=brightness_augmentation, data_shift=data_shift, change_noise=change_noise, prefix_val=prefix_val)#'_'+str(SNR)+'dB_'+'digital'+'_')
+        return generator_val
