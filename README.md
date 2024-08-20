@@ -8,4 +8,4 @@ You can train your own model with:
 
 python trainer.py --device_number 0
 
-evaluator is underconstruction
+evaluator is under construction
