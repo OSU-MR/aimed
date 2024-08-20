@@ -1,7 +1,7 @@
 # easy demo
 Step1 create environment using the following command: 
 
-  conda env create -f environment_s.yml -n aimed
+  conda env create -f environment.yml -n aimed
   
 Step2 run demo.iypnb
 
