@@ -53,13 +53,22 @@ def load_data(args):
     sub_path = base_path + 'niidata' + args.suffix if args.dataset_shape == "256by192" else ValueError(f"Unsupported dataset shape: {args.dataset_shape}")
     view_list = args.view_list
 
-    data_train = get_datasets(args.patients_train, "training", base_path, sub_path, view_list, args.suffix)
-    data_val = get_datasets(args.patients_val, "validation", base_path, sub_path, view_list, args.suffix)
-    data_test = get_datasets(args.patients_test, "testing", base_path, sub_path, view_list, args.suffix)
+    data_train = get_datasets(args.patients_train, "training", base_path, sub_path, view_list, args.suffix) if args.patients_train is not None else None
+    data_val = get_datasets(args.patients_val, "validation", base_path, sub_path, view_list, args.suffix) if args.patients_val is not None else None
+    data_test = get_datasets(args.patients_test, "testing", base_path, sub_path, view_list, args.suffix) if args.patients_test is not None else None
 
     if 'SAX' in data_test:
         vol_shape = [data_test['SAX'].shape[-2], data_test['SAX'].shape[-1]]
         print("Testing volume shape:", vol_shape)
+    elif 'SAX' in data_val:
+        vol_shape = [data_val['SAX'].shape[-2], data_val['SAX'].shape[-1]]
+        print("Validation volume shape:", vol_shape)
+    elif 'SAX' in data_train:
+        vol_shape = [data_train['SAX'].shape[-2], data_train['SAX'].shape[-1]]
+        print("Training volume shape:", vol_shape)
+    else:
+        raise ValueError("Can't determine volume shape, please check the data")
+    
 
     return data_train, data_val, data_test, vol_shape
 

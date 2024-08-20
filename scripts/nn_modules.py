@@ -26,6 +26,8 @@ class model_avg_(nn.Module):
         # Return the mean image and then each flow separately
         return [mean_image, *flows]
 
+
+# # old code for creating the model, if the above code doesn't work, use this one
 # class model_avg_(nn.Module):
 
 #     def __init__(self, vol_shape, nb_features, src_feats, trg_feats, int_steps):
@@ -71,27 +73,27 @@ class model_avg_(nn.Module):
 
 
 def create_model( model_name = None, device_number = None, mode2train = None, 
-                weights_path4load = None, int_steps = 5, device = device, vol_shape = (192,192), nb_features = nb_features):
+                pre_trained_weight_path = None, int_steps = 5, device = device, vol_shape = (192,192), nb_features = nb_features):
     assert model_name != None
     #############"vxm_model"                                                      
     if model_name == "vxm_model":
         model = vxm.networks.VxmDense(inshape=vol_shape,nb_unet_features=nb_features,src_feats=2, trg_feats=2, int_steps=int_steps)
         model.transformer = vxm.layers.SpatialTransformer(size = tuple(vol_shape),mode=mode2train).to(device[device_number]) #'bilinear' | 'nearest' | 'bicubic'
         
-        if weights_path4load is not None:
-            model.load_state_dict(torch.load(weights_path4load, map_location = device[device_number]))
+        if pre_trained_weight_path is not None:
+            model.load_state_dict(torch.load(pre_trained_weight_path, map_location = device[device_number]))
 
     #############
 
     #############"simple_avg_model"
-    if model_name == "simple_avg_model":
+    if model_name == "simple_avg_model" or model_name == "AiM_model":
         model = model_avg_(vol_shape = vol_shape, nb_features=nb_features, src_feats=2, trg_feats=2, int_steps=int_steps).to(device[device_number])
         model.vxm_block.transformer = vxm.layers.SpatialTransformer(size = tuple(vol_shape),mode=mode2train).to(device[device_number]) #'bilinear' | 'nearest' | 'bicubic'
-        if weights_path4load is not None:
+        if pre_trained_weight_path is not None:
             try:
-                model.vxm_block.load_state_dict(torch.load(weights_path4load, map_location = device[device_number]))
+                model.vxm_block.load_state_dict(torch.load(pre_trained_weight_path, map_location = device[device_number]))
             except:
-                model.load_state_dict(torch.load(weights_path4load, map_location = device[device_number]))
+                model.load_state_dict(torch.load(pre_trained_weight_path, map_location = device[device_number]))
 
     return model
 

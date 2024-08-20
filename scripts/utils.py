@@ -15,16 +15,30 @@ def SNR2standard_deviation(SNR, img):
     return sd
 
 
-def add_noise_of_certain_SNR(data_train, data_val, SNR = None , mimic_sd = None, is_phase_ref = 0, to_print = True):
+def add_noise_of_certain_SNR(data_train, data_val = None, SNR = None , mimic_sd = None, is_phase_ref = 0, to_print = True):
     if mimic_sd is not None:
         SNR = [1000, 19, 14, 11][[0, 0.033, 0.0565, 0.08].index(mimic_sd)]
+    # try:
+    #     dataset     = np.vstack((data_train['LAX'],data_train['SAX'],data_train['2CH']))
+    #     dataset_val = np.vstack((data_val['LAX'],data_val['SAX'],data_val['2CH']))
+    # except:
+    #     dataset     = data_train['SAX']
+    #     dataset_val = data_val['SAX']
+
     try:
         dataset     = np.vstack((data_train['LAX'],data_train['SAX'],data_train['2CH']))
-        dataset_val = np.vstack((data_val['LAX'],data_val['SAX'],data_val['2CH']))
     except:
         dataset     = data_train['SAX']
-        dataset_val = data_val['SAX']
 
+    if data_val is None:
+        # Handle the case where data_val is None. For example, use only 'SAX' from data_train or set to None/empty array
+        dataset_val = None  # or np.array([]), depending on how you want to handle this case
+    else:
+        try:
+            dataset_val = np.vstack((data_val['LAX'], data_val['SAX'], data_val['2CH']))
+        except KeyError:
+            # Handle the case where one of the keys might be missing in data_val
+            dataset_val = data_val['SAX']  # or another appropriate fallback
 
     if SNR > 999:
         dataset_with_noise = dataset
@@ -36,11 +50,11 @@ def add_noise_of_certain_SNR(data_train, data_val, SNR = None , mimic_sd = None,
     len_of_patient = dataset.shape[0]
 
     if dataset.shape[0]%8 == 0:
-        len_of_patient = 8
+        len_of_patient = 8  # for 8 SAX slices per patient
     if dataset.shape[0]%9 == 0:
-        len_of_patient = 9
+        len_of_patient = 9  # for 8 SAX slices + 1 LAX/2CH slice per patient
     if dataset.shape[0]%10 == 0:
-        len_of_patient = 10
+        len_of_patient = 10 # for 8 SAX slices + 1 LAX + 2CH slices per patient
 
     #print("added SNR: ", SNR)
     total_sd_training = []
@@ -51,7 +65,7 @@ def add_noise_of_certain_SNR(data_train, data_val, SNR = None , mimic_sd = None,
         total_sd_training.append(standard_deviation)
         #print(standard_deviation)
     #print(dataset.shape) #(60, 29, 2, 2, 192, 192)
-    print(dataset_with_noise.shape)
+    print("Input Data Shape1 :",dataset_with_noise.shape)
     for set_ind in range(dataset.shape[0]):
         for slice_ind in range(dataset.shape[1]):
             dataset_with_noise[set_ind,slice_ind,is_phase_ref,...] = noisy("gauss",dataset[set_ind,slice_ind,is_phase_ref,...],standard_deviation=total_sd_training[set_ind//len_of_patient])
@@ -59,15 +73,18 @@ def add_noise_of_certain_SNR(data_train, data_val, SNR = None , mimic_sd = None,
 
     #print("\n")
     total_sd_testing = []
-    dataset_with_noise_val = np.zeros(dataset_val.shape)
-    for i in range(dataset_val.shape[0]//len_of_patient):
-        standard_deviation = SNR2standard_deviation(SNR=SNR, img = dataset_val[len_of_patient*i:len_of_patient*(i+1),:,is_phase_ref,...] )
-        total_sd_testing.append(standard_deviation)
-        #print(standard_deviation)
-    for set_ind in range(dataset_val.shape[0]):
-        for slice_ind in range(dataset_val.shape[1]):
-            dataset_with_noise_val[set_ind,slice_ind,is_phase_ref,...] = noisy("gauss",dataset_val[set_ind,slice_ind,is_phase_ref,...],standard_deviation=total_sd_testing[set_ind//len_of_patient])
-
+    if dataset_val is not None:
+        dataset_with_noise_val = np.zeros(dataset_val.shape)
+        for i in range(dataset_val.shape[0]//len_of_patient):
+            standard_deviation = SNR2standard_deviation(SNR=SNR, img = dataset_val[len_of_patient*i:len_of_patient*(i+1),:,is_phase_ref,...] )
+            total_sd_testing.append(standard_deviation)
+            #print(standard_deviation)
+        for set_ind in range(dataset_val.shape[0]):
+            for slice_ind in range(dataset_val.shape[1]):
+                dataset_with_noise_val[set_ind,slice_ind,is_phase_ref,...] = noisy("gauss",dataset_val[set_ind,slice_ind,is_phase_ref,...],standard_deviation=total_sd_testing[set_ind//len_of_patient])
+    else:
+        dataset_with_noise_val = None
+        total_sd_testing = 0
 
     #print("avg of the ", ,"SNRs: ",np.mean(total_SNR))
     #print(SNR, ",",np.mean(total_SNR),)

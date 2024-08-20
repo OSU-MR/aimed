@@ -189,7 +189,7 @@ class vxm_data_generator_parallel:
         self.beta = list(np.linspace(87, 95, 9))
 
         base_SNR = SNR2standard_deviation(11,self.clear_data)
-        print("base_SNR: "+str(base_SNR))
+        #print("base_SNR: "+str(base_SNR))
         #0.1403170870464488#for healthy training 10 3 4 6 11 1 => 11.3dB
         #0.08853409662802346#15dB  #0.1403170870464488
         #base_SNR = 0.13803942758081308
@@ -342,11 +342,13 @@ class simple_avg_data_generator_parallel:
         self.beta = list(np.linspace(87, 95, 9)) #9
 
 
-        base_SNR = SNR2standard_deviation(11,self.clear_data)
-        print("base_SNR: "+str(base_SNR))
-        #base_SNR = 0.1403170870464488#0.08853409662802346#15dB  #0.1403170870464488
+        #base_SNR = SNR2standard_deviation(11,self.clear_data) #if you want to fix the SNR value rather than standard deviation you can use this line
+        #base_SNR = 0.1403170870464488 #healthy 11 dB
+        #base_SNR = 0.08853409662802346 #digital 11 dB
         #base_SNR = 0.13803942758081308
-        self.delta = np.array(create_SNR_list(base_SNR, P = 30, N = 21)) #21
+        base_SNR = 0.1403170870464488 #here we fix the center stadard deviation value for adding noise
+        #print("base_SNR: "+str(base_SNR))
+        self.delta = np.array(create_SNR_list(base_SNR, P = 30, N = 21)) #P = 30, N = 21 give us SNR +- about 3.5dB
 
         
         self.set_num = self.dataset.shape[0]
@@ -464,12 +466,14 @@ def create_generators(model_name,
 
 
     if model_name == "vxm_model":
+        print("creating a generator for single VXM model")
         generator             = vxm_data_generator_parallel(dataset_with_noise,clear_data = dataset,batch_size=batch_size)# brightness_augmentation = False)#, data_shift=False, change_noise = False)
         generator_training    = vxm_data_generator_parallel(    dataset_with_noise_xdB,     clear_data = dataset,batch_size=14,    val=trg, change_noise = False, brightness_augmentation = False, data_shift=False, prefix_val = prefix_train)
         generator_val         = vxm_data_generator_parallel(dataset_with_noise_val_xdB, clear_data = dataset_val,batch_size=14,    val=trg, change_noise = False, brightness_augmentation = False, data_shift=False, prefix_val = prefix_val)#'val_')
         generator_test        = vxm_data_generator_parallel(dataset_with_noise_tst_xdB, clear_data = dataset_tst,batch_size=14,    val=trg, change_noise = False, brightness_augmentation = False, data_shift=False, prefix_val = prefix_test)#'val_')
         return generator, generator_val, generator_training, generator_test
     else:
+        print("creating a generator for AiM(average VXM) model")
         generator             = simple_avg_data_generator_parallel(dataset_with_noise,clear_data = dataset,batch_size=batch_size)# brightness_augmentation = False)#, data_shift=False, change_noise = False) #no brightness augmentation for digital phantom
         generator_training    = simple_avg_data_generator_parallel(    dataset_with_noise_xdB,     clear_data = dataset,batch_size=1,    val=trg,change_noise = False, brightness_augmentation = False, data_shift=False, prefix_val = prefix_train)
         generator_val         = simple_avg_data_generator_parallel(dataset_with_noise_val_xdB, clear_data = dataset_val,batch_size=1,    val=trg,change_noise = False, brightness_augmentation = False, data_shift=False, prefix_val = prefix_val)#'val_')
@@ -486,8 +490,12 @@ def create_generators_val(model_name,
                           data_shift = False, 
                           change_noise = False):
     if model_name == "vxm_model":
+        #create a generator single vxm model
+        print("creating a generator for single VXM model")
         generator_val         = vxm_data_generator_parallel(dataset_with_noise_test,clear_data=dataset_test, val=selected_target, batch_size = 14, brightness_augmentation=brightness_augmentation, data_shift=data_shift, change_noise=change_noise, prefix_val=prefix_val)#'_'+str(SNR)+'dB_'+'digital'+'_')
         return generator_val
     else:
+        #create a generator for simple avg model
+        print("creating a generator for AiM(average VXM) model")
         generator_val = simple_avg_data_generator_parallel(dataset_with_noise_test,clear_data=dataset_test, val=selected_target, batch_size = 1, brightness_augmentation=brightness_augmentation, data_shift=data_shift, change_noise=change_noise, prefix_val=prefix_val)#'_'+str(SNR)+'dB_'+'digital'+'_')
         return generator_val
