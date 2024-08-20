@@ -4,6 +4,8 @@ To Run the code you need to clone LDC repository and place the folder in the sam
 Training data is also need to be placed in the same folder.
 
 # Run
-You can do test run with:
+You can train your own model with:
 
 python trainer.py --device_number 0
+
+evaluator is underconstruction
