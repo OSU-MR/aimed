@@ -353,20 +353,26 @@ class simple_avg_data_generator_parallel:
         
         self.set_num = self.dataset.shape[0]
         self.rep_num = self.dataset.shape[1]
+        #print("self.dataset.shape",self.dataset.shape)
 
         if self.val == None:
             self.slice_idx =  [i for i in range(self.set_num) for _ in range(self.rep_num)]
             self.target_idx = [k for j in range(self.set_num) for k in range(self.rep_num)]
-        else:
+        elif isinstance(self.val, int):
             self.slice_idx =  [i for i in range(self.set_num)]
             self.target_idx = [self.val] * self.set_num
-        
+        elif isinstance(self.val, list):
+            self.slice_idx =  [i for i in range(self.set_num) for _ in range(len(self.val))]
+            self.target_idx = [k for j in range(self.set_num) for k in self.val]
+        # print("self.slice_idx",self.slice_idx)
+        # print("self.target_idx",self.target_idx)
         self.dataset_len = len(self.slice_idx)
 
         self.percentiles_list = precalculate_percentiles_parallel(self.clear_data, self.beta)
 
     def __iter__(self):
         self.epoch_index = list(zip(self.slice_idx, self.target_idx))
+        #print("self.epoch_index",self.epoch_index)
         random.shuffle(self.epoch_index)
         #print("resetting the generator, the epoch lengh",self.dataset_len, "iterations per epoch ",self.dataset_len//self.batch_size)
         return self
