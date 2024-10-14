@@ -139,7 +139,7 @@ def precalculate_percentiles_parallel(clear_data_slice, beta):
 class vxm_data_generator_parallel:
     def __init__(self, x_data, phase_ref_or_not = 0, batch_size = 10, debug = 0, replace = False, 
                        clear_data = None, val = None, brightness_augmentation = True,
-                       data_shift = True, change_noise = True, prefix_val = None):
+                       data_shift = True, change_noise = True, prefix_val = None, data_start = 7, data_end = 22):
 
         #save a copy of the dataset for later use 
         #only use middle 15 images for training
@@ -157,8 +157,8 @@ class vxm_data_generator_parallel:
 
         #if self.prefix+'self.dataset_temp.npy' does not exist, save it
         if not os.path.exists(self.prefix+'self.dataset_temp.npy'):
-            np.save(self.prefix+'self.dataset_temp.npy',x_data[:,7:22,phase_ref_or_not,...])
-            np.save(self.prefix+'self.clear_data_temp.npy',clear_data[:,7:22,phase_ref_or_not,...])
+            np.save(self.prefix+'self.dataset_temp.npy',x_data[:,data_start:data_end,phase_ref_or_not,...])
+            np.save(self.prefix+'self.clear_data_temp.npy',clear_data[:,data_start:data_end,phase_ref_or_not,...])
         ###!!!! save with different names!! the names for training and testing should be different
         self.dataset = np.load(self.prefix+'self.dataset_temp.npy')
         self.clear_data = np.load(self.prefix+'self.clear_data_temp.npy')   
@@ -294,7 +294,7 @@ def process_images(x_data_slice, clear_data_slice, current_index, zero_phi):
 class simple_avg_data_generator_parallel:
     def __init__(self, x_data, phase_ref_or_not = 0, batch_size = 10, debug = 0, replace = False, 
                        clear_data = None, val = None, brightness_augmentation = True,
-                       data_shift = True, change_noise = True, prefix_val = None):
+                       data_shift = True, change_noise = True, prefix_val = None, data_start = 7, data_end = 22):
         #save a copy of the dataset for later use 
         #only use middle 15 images for training
 
@@ -311,8 +311,8 @@ class simple_avg_data_generator_parallel:
 
         #if self.prefix+'self.dataset_temp.npy' does not exist, save it
         if not os.path.exists(self.prefix+'self.dataset_temp.npy'):
-            np.save(self.prefix+'self.dataset_temp.npy',x_data[:,7:22,phase_ref_or_not,...])
-            np.save(self.prefix+'self.clear_data_temp.npy',clear_data[:,7:22,phase_ref_or_not,...])
+            np.save(self.prefix+'self.dataset_temp.npy',x_data[:,data_start:data_end,phase_ref_or_not,...])
+            np.save(self.prefix+'self.clear_data_temp.npy',clear_data[:,data_start:data_end,phase_ref_or_not,...])
 
         ###!!!! save with different names!! the names for training and testing should be different
         self.dataset = np.load(self.prefix+'self.dataset_temp.npy')
@@ -494,14 +494,14 @@ def create_generators_val(model_name,
                           prefix_val = None,
                           brightness_augmentation = False, 
                           data_shift = False, 
-                          change_noise = False):
+                          change_noise = False, data_start = 7, data_end = 22):
     if model_name == "vxm_model":
         #create a generator single vxm model
         print("creating a generator for single VXM model")
-        generator_val         = vxm_data_generator_parallel(dataset_with_noise_test,clear_data=dataset_test, val=selected_target, batch_size = 14, brightness_augmentation=brightness_augmentation, data_shift=data_shift, change_noise=change_noise, prefix_val=prefix_val)#'_'+str(SNR)+'dB_'+'digital'+'_')
+        generator_val         = vxm_data_generator_parallel(dataset_with_noise_test,clear_data=dataset_test, val=selected_target, batch_size = 14, brightness_augmentation=brightness_augmentation, data_shift=data_shift, change_noise=change_noise, prefix_val=prefix_val, data_start= data_start, data_end=data_end)#'_'+str(SNR)+'dB_'+'digital'+'_')
         return generator_val
     else:
         #create a generator for simple avg model
         print("creating a generator for AiM(average VXM) model")
-        generator_val = simple_avg_data_generator_parallel(dataset_with_noise_test,clear_data=dataset_test, val=selected_target, batch_size = 1, brightness_augmentation=brightness_augmentation, data_shift=data_shift, change_noise=change_noise, prefix_val=prefix_val)#'_'+str(SNR)+'dB_'+'digital'+'_')
+        generator_val = simple_avg_data_generator_parallel(dataset_with_noise_test,clear_data=dataset_test, val=selected_target, batch_size = 1, brightness_augmentation=brightness_augmentation, data_shift=data_shift, change_noise=change_noise, prefix_val=prefix_val, data_start= data_start, data_end=data_end)#'_'+str(SNR)+'dB_'+'digital'+'_')
         return generator_val
