@@ -52,6 +52,7 @@ def training(data_train, data_val,data_test,
         p_learning_rate = params.get('learning_rate', 0.001)
         p_epochs = params.get('epochs', 1)
         p_SGDmomentum = params.get('SGDmomentum', 0.9)
+        p_K = params.get('K', 15)
         p_notes = params.get('notes', '')
 
         print(params)
@@ -82,7 +83,8 @@ def training(data_train, data_val,data_test,
         losses, weights = losses_weights(model_name=p_model,
                                         reg_lambda=p_lambda,
                                         training_losses=training_losses[loss_name_list.index(p_loss)],
-                                        training_losses2=field_regularization)
+                                        training_losses2=field_regularization,
+                                        K=p_K)
 
         #generator is for training, generator_val is for validation, generator_val_training is for recording the training losses, generator_test is for testing
         generator, generator_val, generator_val_training, generator_test  = create_generators(p_model, 
@@ -155,6 +157,7 @@ if __name__ == '__main__':
             'learning_rate': 3,
             'epochs': 2500,
             'SGDmomentum': 0.9,
+            'K': 15, # number of the images. e.g., K=15 = 14 moving images + 1 target image
             'notes': ''
         }
     ]
