@@ -149,7 +149,7 @@ if __name__ == '__main__':
     model_lists = [
         {
             'standard_deviation': 0.08,
-            'lambda_value': 0.05,
+            'lambda_value': 0.05384615376,#0.05,
             'model': 'simple_avg_model',
             'loss': 'loss_LDC',
             'mode': 'bicubic',
