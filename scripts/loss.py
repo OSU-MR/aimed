@@ -688,15 +688,15 @@ import voxelmorph as vxm
 _ = torch.manual_seed(321)
 from torchmetrics.image.lpip import LearnedPerceptualImagePatchSimilarity
 
-def losses_weights(model_name, reg_lambda, training_losses, training_losses2 = vxm.losses.Grad('l2').loss, batch_size = 13):
-
+def losses_weights(model_name, reg_lambda, training_losses, training_losses2 = vxm.losses.Grad('l2').loss, K = 15):
+    K = K - 2
     losses  = [training_losses2]
     weights = [1,reg_lambda]
     if model_name != "vxm_model":
-        for i in range(batch_size):
+        for i in range(K):
             losses.insert(-1, training_losses2)
             weights.insert(-1, reg_lambda)
-        weights[1:] = (np.array(weights[1:])/batch_size).tolist()
+        weights[1:] = (np.array(weights[1:])/(K+1)).tolist()
     losses.insert(0,training_losses)
     return losses, weights
 
