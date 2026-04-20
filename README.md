@@ -61,9 +61,13 @@ Xuan Lei  Email: lei.337{at}osu.edu
 
 ## Citation
 
-@article{lei2024image,
-  title={Image Registration with Averaging Network and Edge-Based Loss for Low-SNR Cardiac MRI},
+@article{lei2025groupwise,
+  title={Groupwise image registration with edge-based loss for low-SNR cardiac MRI},
   author={Lei, Xuan and Schniter, Philip and Chen, Chong and Ahmad, Rizwan},
-  journal={arXiv preprint arXiv:2409.02348},
-  year={2024}
+  journal={Magnetic Resonance in Medicine},
+  volume={94},
+  number={3},
+  pages={1257--1268},
+  year={2025},
+  publisher={Wiley Online Library}
 }
